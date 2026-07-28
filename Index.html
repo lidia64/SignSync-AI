@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignBridge AI | Healthcare Accessibility</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            padding: 20px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .track-badge {
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 160px 5% 100px;
+            text-align: center;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            line-height: 1.2;
+            margin-bottom: 20px;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            max-width: 800px;
+            margin-inline: auto;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, #1d4ed8 100%);
+            color: white;
+            padding: 16px 40px;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Content Grid */
+        .section-container {
+            padding: 80px 5%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .card h2 {
+            font-size: 1.8rem;
+            margin-bottom: 16px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        /* Features List */
+        .feature-list {
+            list-style: none;
+            margin-top: 20px;
+        }
+
+        .feature-list li {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            color: var(--text-muted);
+        }
+
+        .feature-list li span {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-secondary);
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        /* Hackathon Bonus Banner */
+        .bonus-banner {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            margin-top: 40px;
+            text-align: center;
+        }
+
+        .bonus-banner h3 {
+            color: #38bdf8;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">SignBridge AI</div>
+        <div class="track-badge">Track 02: Health Sciences & Biotech</div>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <h1>Making healthcare accessible for ALL</h1>
+            <p>A multimodal AI interpreter that translates continuous African Sign Language into spoken Kinyarwanda and English in real-time, empowering the Deaf community in medical settings.</p>
+            <a href="app.html" class="cta-button">Launch Live Interpreter Prototype</a>
+        </section>
+
+        <section class="section-container">
+            <div class="grid-2">
+                <!-- Problem Card -->
+                <div class="card">
+                    <h2>⚠️ The Problem</h2>
+                    <p>Millions of deaf and hard-of-hearing individuals across Africa face severe, life-threatening communication barriers in healthcare.</p>
+                    <p>When a patient cannot articulate their symptoms, and clinicians lack access to human sign language interpreters, misdiagnoses occur. Current accessible technologies are often built only for western languages or require high-end hardware.</p>
+                </div>
+
+                <!-- Solution Card -->
+                <div class="card">
+                    <h2>💡 Our GenAI Solution</h2>
+                    <p>SignBridge AI eliminates this barrier using state-of-the-art multimodal Generative AI. We don't just track static hands—we read continuous motion.</p>
+                    <ul class="feature-list">
+                        <li><span>Video Context</span> Analyzes 4-second video clips to understand full sentence structure, not just isolated words.</li>
+                        <li><span>Gemini 3 Powered</span> Utilizes the Gemini 3 Flash Preview model for lightning-fast spatial and temporal reasoning.</li>
+                        <li><span>Localized Output</span> Natively translates medical signs into Kinyarwanda text and speech.</li>
+                    </ul>
+                </div>
+            </div>
+
+
+        </section>
+    </main>
+
+</body>
+</html>

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Video Sign Language Interpreter</title>
+    
+    <!-- MediaPipe Hands for Real-Time Skeleton Overlay -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000; color: #fff; }
+
+        #container { position: relative; width: 100vw; height: 100vh; }
+        
+        /* Stack the video and canvas on top of each other */
+        video, canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror camera for natural movement */
+        }
+        
+        video { z-index: 1; display: block; } /* Video shows instantly */
+        canvas { z-index: 2; pointer-events: none; background: transparent; } /* Skeletons draw on top */
+
+        .header-bar {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 10px 24px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; background-color: #10b981; box-shadow: 0 0 10px #10b981; }
+        .recording-dot { background-color: #ef4444 !important; box-shadow: 0 0 10px #ef4444 !important; animation: pulse 1s infinite; }
+        .loading-dot { background-color: #f59e0b; box-shadow: 0 0 10px #f59e0b; } /* Orange while loading */
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .controls-card {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 650px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(16px);
+            border-radius: 24px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 10;
+        }
+
+        .result-box {
+            color: #f8fafc;
+            font-size: 1.15rem;
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .btn-group { display: flex; gap: 10px; }
+
+        .btn {
+            flex: 1;
+            padding: 16px 12px;
+            border: none;
+            border-radius: 14px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: white;
+        }
+
+        .btn-record {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+        }
+        .btn-record:hover { transform: translateY(-2px); }
+
+        .btn-english {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+        .btn-english:hover { transform: translateY(-2px); }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+        .btn-success:hover { transform: translateY(-2px); }
+
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="container">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="outputCanvas"></canvas>
+
+    <div class="header-bar">
+        <div id="statusDot" class="status-dot loading-dot"></div>
+        <span id="statusText">Initializing Camera...</span>
+    </div>
+
+    <div class="controls-card">
+        <div id="resultText" class="result-box">
+            Click 'Record', sign your sentence for 4 seconds, and AI will interpret the full motion!
+        </div>
+
+        <div class="btn-group">
+            <button id="recordBtn" class="btn btn-record" onclick="recordSentence()">
+                🎥 Record (4s)
+            </button>
+            <button id="speakEnBtn" class="btn btn-english" onclick="speakEnglish()" disabled>
+                🗣️ English
+            </button>
+            <button id="speakRwBtn" class="btn btn-success" onclick="speakKinyarwanda()" disabled>
+                🔊 Kinyarwanda
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // HARDCODED GEMINI API KEY
+    const API_KEY = "AQ.Ab8RN6LoaEh5C0rQcvBoaZABF9s7GtV-JCOlj33hAuTAQpsXeA";
+
+    const videoElement = document.getElementById('webcam');
+    const canvasElement = document.getElementById('outputCanvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const resultText = document.getElementById('resultText');
+    
+    const recordBtn = document.getElementById('recordBtn');
+    const speakEnBtn = document.getElementById('speakEnBtn');
+    const speakRwBtn = document.getElementById('speakRwBtn');
+
+    let mediaStream = null;
+    let currentEnglishTranslation = "";
+    let currentKinyarwandaTranslation = "";
+    let lastVideoTime = -1;
+
+    // --- MediaPipe Hand Tracking Setup ---
+    const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
+    });
+
+    hands.onResults((results) => {
+        // Change status from loading to ready once the ML model finishes downloading
+        if (statusText.innerText.includes("Loading Tracker")) {
+            statusText.innerText = "Camera Feed Ready";
+            statusDot.classList.remove('loading-dot');
+        }
+
+        canvasElement.width = videoElement.videoWidth || 640;
+        canvasElement.height = videoElement.videoHeight || 480;
+
+        // Clear the canvas completely (the video element underneath shows through)
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+        // Draw ONLY the futuristic green & red joints if hands are detected
+        if (results.multiHandLandmarks) {
+            for (const landmarks of results.multiHandLandmarks) {
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FFa3', lineWidth: 4 });
+                drawLandmarks(canvasCtx, landmarks, { color: '#ff0055', lineWidth: 2, radius: 4 });
+            }
+        }
+    });
+
+    async function trackingLoop() {
+        if (videoElement.readyState >= 2 && videoElement.currentTime !== lastVideoTime) {
+            lastVideoTime = videoElement.currentTime;
+            await hands.send({ image: videoElement });
+        }
+        requestAnimationFrame(trackingLoop);
+    }
+    // -------------------------------------
+
+    // 1. Initialize Webcam Stream (Shows Instantly!)
+    async function initCamera() {
+        try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 640, height: 480, facingMode: 'user' }, 
+                audio: false
+            });
+            videoElement.srcObject = mediaStream;
+            
+            statusText.innerText = "Loading Tracker AI..."; 
+            
+            // Start the MediaPipe drawing loop
+            trackingLoop();
+        } catch (err) {
+            resultText.innerText = "Camera Error: Please allow camera access in browser settings.";
+        }
+    }
+
+    // 2. Record 4-Second Video Clip
+    async function recordSentence() {
+        if (!mediaStream) return;
+
+        recordBtn.disabled = true;
+        speakEnBtn.disabled = true;
+        speakRwBtn.disabled = true;
+        statusDot.classList.add('recording-dot');
+
+        let countdown = 4;
+        statusText.innerText = `🔴 Recording Motion... (${countdown}s)`;
+        resultText.innerText = "Perform your continuous sign language sentence now!";
+
+        const recordedChunks = [];
+        let mimeType = 'video/webm';
+
+        if (!MediaRecorder.isTypeSupported('video/webm')) {
+            mimeType = 'video/mp4';
+        }
+
+        const mediaRecorder = new MediaRecorder(mediaStream, { 
+            mimeType: mimeType,
+            videoBitsPerSecond: 250000 
+        });
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) recordedChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            statusDot.classList.remove('recording-dot');
+            statusText.innerText = "Processing Video with Gemini GenAI...";
+            resultText.innerText = "Compressing and analyzing video motion...";
+
+            const blob = new Blob(recordedChunks, { type: mimeType });
+            const reader = new FileReader();
+
+            reader.readAsDataURL(blob);
+            reader.onloadend = async () => {
+                const base64Video = reader.result.split(',')[1];
+                await sendVideoToGemini(base64Video, mimeType);
+            };
+        };
+
+        mediaRecorder.start();
+
+        const timer = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                statusText.innerText = `🔴 Recording Motion... (${countdown}s)`;
+            } else {
+                clearInterval(timer);
+                mediaRecorder.stop();
+            }
+        }, 1000);
+    }
+
+    // 3. Send Video Clip to Gemini
+    async function sendVideoToGemini(base64Video, mimeType) {
+        try {
+            const promptText = `You are an expert, professional Sign Language interpreter for healthcare settings. 
+            You are receiving a continuous 4-second video clip of a person signing a full sentence in Sign Language. 
+            
+            Watch the full movement, hand motion sequence, and body expressions across the entire video.
+            Translate the full signed sentence into a smooth, natural spoken sentence in both English and Kinyarwanda.
+            
+            Output format:
+            Signed Sentence: [Full English Meaning] | Kinyarwanda: [Kinyarwanda Translation]
+            
+            Example: Signed Sentence: I have severe chest pain and need a doctor | Kinyarwanda: Mfite ububabare bukabije mu gatuza kandi nkeneye umuganga
+            If no signs are detected in the video, reply: 'No clear sign language sentence detected in the video clip.'`;
+
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${API_KEY}`;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: promptText },
+                            { inline_data: { mime_type: mimeType, data: base64Video } }
+                        ]
+                    }]
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error?.message || "API rejected the payload.");
+            }
+
+            if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                const fullResponse = data.candidates[0].content.parts[0].text.trim();
+                resultText.innerText = fullResponse;
+
+                currentEnglishTranslation = fullResponse;
+                currentKinyarwandaTranslation = fullResponse;
+
+                if (fullResponse.includes("Kinyarwanda:")) {
+                    const parts = fullResponse.split("Kinyarwanda:");
+                    currentKinyarwandaTranslation = parts[1].trim();
+                    
+                    let engPart = parts[0];
+                    if (engPart.includes("Signed Sentence:")) {
+                        engPart = engPart.replace("Signed Sentence:", "");
+                    }
+                    if (engPart.includes("|")) {
+                        engPart = engPart.replace("|", "");
+                    }
+                    currentEnglishTranslation = engPart.trim();
+                }
+
+                speakEnBtn.disabled = false;
+                speakRwBtn.disabled = false;
+                statusText.innerText = "Camera Feed Ready";
+            } else {
+                throw new Error("Could not process video. Try recording again.");
+            }
+
+        } catch (err) {
+            resultText.innerText = "Error: " + err.message;
+            statusText.innerText = "Camera Feed Ready";
+        } finally {
+            recordBtn.disabled = false;
+        }
+    }
+
+    // 4. Speak English
+    function speakEnglish() {
+        if (!currentEnglishTranslation) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(currentEnglishTranslation);
+        utterance.lang = 'en-US'; 
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // 5. Speak Kinyarwanda
+    function speakKinyarwanda() {
+        if (!currentKinyarwandaTranslation) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(currentKinyarwandaTranslation);
+        utterance.lang = 'rw-RW'; 
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    window.addEventListener('DOMContentLoaded', initCamera);
+</script>
+
+</body>
+</html>
